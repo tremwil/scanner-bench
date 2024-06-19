@@ -115,13 +115,40 @@ where
 /// SIMD-accelerated scanner.
 pub struct SimdScanner<const N: usize>
 where
-    LaneCount<N>: SupportedLaneCount;
+    LaneCount<N>: SupportedLaneCount,
+{
+    frequencies: [u8; 256],
+}
+
+impl<const N: usize> SimdScanner<N>
+where
+    LaneCount<N>: SupportedLaneCount,
+{
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_frequencies(frequencies: [u8; 256]) -> Self {
+        Self { frequencies }
+    }
+}
+
+impl<const N: usize> Default for SimdScanner<N>
+where
+    LaneCount<N>: SupportedLaneCount,
+{
+    fn default() -> Self {
+        Self {
+            frequencies: DEFAULT_FREQUENCIES,
+        }
+    }
+}
 
 impl<const N: usize> Scanner for SimdScanner<N>
 where
     LaneCount<N>: SupportedLaneCount,
 {
-    fn find_one(haystack: &[u8], pat: &impl Pattern) -> Option<usize> {
+    fn find_one(&self, haystack: &[u8], pat: &impl Pattern) -> Option<usize> {
         let range = haystack.as_ptr_range();
 
         // TODO: Do a naive scan on the unaligned portions of the region
@@ -136,7 +163,7 @@ where
             .iter()
             .copied()
             .enumerate()
-            .min_by_key(|&(_, b)| FREQUENCIES[b as usize])?;
+            .min_by_key(|&(_, b)| self.frequencies[b as usize])?;
 
         let needle_splat: Simd<_, N> = Simd::splat(needle);
 
@@ -157,13 +184,13 @@ where
         None
     }
 
-    fn find_all(haystack: &[u8], pat: &impl Pattern) -> impl Iterator<Item = usize> {
+    fn find_all(&self, haystack: &[u8], pat: &impl Pattern) -> impl Iterator<Item = usize> {
         todo!();
         return [].into_iter();
     }
 }
 
-const FREQUENCIES: [u8; 256] = [
+const DEFAULT_FREQUENCIES: [u8; 256] = [
     0xFF, 0xFB, 0xF2, 0xEE, 0xEC, 0xE7, 0xDC, 0xC8, 0xED, 0xB7, 0xCC, 0xC0, 0xD3, 0xCD, 0x89, 0xFA,
     0xF3, 0xD6, 0x8D, 0x83, 0xC1, 0xAA, 0x7A, 0x72, 0xC6, 0x60, 0x3E, 0x2E, 0x98, 0x69, 0x39, 0x7C,
     0xEB, 0x76, 0x24, 0x34, 0xF9, 0x50, 0x04, 0x07, 0xE5, 0xAC, 0x53, 0x65, 0x9B, 0x4D, 0x6D, 0x5C,
