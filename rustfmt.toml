@@ -1,0 +1,4 @@
+indent_style = "Block"
+reorder_imports = true
+group_imports = "StdExternalCrate"
+control_brace_style = "ClosingNextLine"

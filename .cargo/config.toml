@@ -1,0 +1,2 @@
+[build]
+rustflags="-C target-feature=+ssse3,+avx2,+bmi1"
