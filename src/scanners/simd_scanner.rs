@@ -1,3 +1,4 @@
+use core::intrinsics::unlikely;
 use std::io::Write;
 use std::simd::cmp::SimdPartialEq;
 use std::simd::{LaneCount, Simd, SupportedLaneCount};
@@ -57,10 +58,12 @@ where
         unsafe { std::slice::from_raw_parts(self.mask.as_ptr() as usize as *const u8, self.len()) }
     }
 
+    #[inline(always)]
     unsafe fn matches_unchecked(&self, ptr: *const u8) -> bool {
         let ptr = ptr as usize as *const Simd<u8, N>;
         for i in 0..self.bytes.len() {
-            if ptr.add(i).read_unaligned() & self.mask[i] != self.bytes[i] {
+            let chunk = ptr.add(i).read_unaligned();
+            if ((chunk ^ self.bytes[i]) & self.mask[i]) != Simd::<u8, N>::splat(0) {
                 return false;
             }
         }
@@ -106,9 +109,11 @@ where
         self.mask.as_array()
     }
 
+    #[inline(always)]
     unsafe fn matches_unchecked(&self, ptr: *const u8) -> bool {
         let ptr = ptr as usize as *const Simd<u8, N>;
-        ptr.read_unaligned() & self.mask == self.bytes
+        // Doing it this way leads to optimal codegen (using vptest with mask directly)
+        ((ptr.read_unaligned() ^ self.bytes) & self.mask) == Simd::<u8, N>::splat(0)
     }
 }
 
@@ -155,7 +160,7 @@ where
         let lo_align = ((range.start as usize + N - 1) & !(N - 1)) as *const Simd<u8, N>;
         let hi_align = (range.end as usize - pat.len() & !(N - 1)) as *const Simd<u8, N>;
         let aligned_region: &[Simd<u8, N>] = unsafe {
-            std::slice::from_raw_parts(lo_align, lo_align.offset_from(hi_align) as usize)
+            std::slice::from_raw_parts(lo_align, hi_align.offset_from(lo_align) as usize)
         };
 
         let (needle_index, needle) = pat
@@ -163,17 +168,18 @@ where
             .iter()
             .copied()
             .enumerate()
+            .filter(|&(i, _)| pat.mask()[i] == 0xff)
             .min_by_key(|&(_, b)| self.frequencies[b as usize])?;
 
         let needle_splat: Simd<_, N> = Simd::splat(needle);
 
         for chunk in aligned_region {
             let mut eqmask = chunk.simd_eq(needle_splat).to_bitmask();
-            while eqmask != 0 {
+            while unlikely(eqmask != 0) {
                 let ofs = eqmask.trailing_zeros() as usize;
                 unsafe {
                     let addr = chunk.as_array().as_ptr().add(ofs).sub(needle_index);
-                    if pat.matches_unchecked(addr) {
+                    if unlikely(pat.matches_unchecked(addr)) {
                         return Some(addr.offset_from(range.start) as usize);
                     }
                 }
