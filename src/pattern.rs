@@ -21,6 +21,7 @@ pub trait Pattern: Sized {
         Self::from_bytes_and_mask(pat.bytes(), pat.mask()).unwrap()
     }
 
+    #[inline(always)]
     unsafe fn matches_unchecked(&self, ptr: *const u8) -> bool {
         for i in 0..self.bytes().len() {
             if ptr.add(i).read() & self.mask()[i] != self.bytes()[i] {

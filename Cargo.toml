@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type= [ "cdylib" ]
+crate-type= [ "bin" ]
 
 [dependencies]
 pelite = "0.10"
@@ -28,11 +28,10 @@ features = [
 ]
 
 [profile.release]
-debug = false
+debug = true
 debug-assertions = false
 overflow-checks = false
 panic = "abort"
-strip = "debuginfo"
 lto = true
 opt-level = 3
 codegen-units = 1
