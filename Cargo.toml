@@ -11,6 +11,7 @@ pelite = "0.10"
 aho-corasick = "1.1.3"
 log = "0.4.21"
 simple_logger = "5.0.0"
+itertools = "0.13"
 
 [dependencies.windows]
 version = "0.57"

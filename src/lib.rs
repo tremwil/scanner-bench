@@ -11,7 +11,10 @@ use std::{
 use pattern::{BasicPattern, Pattern};
 use pelite::pe::{Pe, PeObject, PeView};
 use scanner::Scanner;
-use scanners::simd_scanner::{SimdPattern, SimdScanner, SmallSimdPattern};
+use scanners::{
+    multi_needle_simd::MultiNeedleSimd,
+    simd_scanner::{SimdPattern, SimdScanner, SmallSimdPattern},
+};
 use windows::{
     core::PCWSTR,
     Win32::{
@@ -31,7 +34,7 @@ mod scanner;
 mod scanners;
 
 const BYTES: &[u8] = &[
-    0x48, 0x89, 0x5c, 0x24, 0x0, 0x48, 0x88, 0x74, 0x24, 0x0, 0x57, 0x48, 0x83, 0xec, 0x0, 0x48,
+    0x48, 0x89, 0x5c, 0x24, 0x0, 0x48, 0x89, 0x74, 0x24, 0x0, 0x57, 0x48, 0x83, 0xec, 0x0, 0x48,
     0x8b, 0x1, 0x48, 0x8b, 0xf9, 0x32, 0xdb,
 ];
 const MASK: &[u8] = &[
@@ -43,36 +46,31 @@ unsafe fn setup_console() -> Result<(), Box<dyn Error>> {
     if GetConsoleWindow().0 == 0 && AllocConsole().is_err() {
         return Err("Failed to allocate console".into());
     }
-    std::process::Command::new("CMD")
-        .args(["/C", "CLS"])
-        .status()?;
+    std::process::Command::new("CMD").args(["/C", "CLS"]).status()?;
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     unsafe { setup_console()? };
 
-    simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Info)
-        .init()?;
+    simple_logger::SimpleLogger::new().with_level(log::LevelFilter::Info).init()?;
 
     let file = std::fs::read(r"E:\SteamLibrary\steamapps\common\ELDEN RING\Game\eldenring.exe")?;
     let region = &file;
 
-    fn bench<const N: usize, P: Pattern>(region: &[u8]) -> Result<(), Box<dyn Error>>
-    where
-        LaneCount<N>: SupportedLaneCount,
-    {
+    fn bench<S: Scanner + Default, P: Pattern>(region: &[u8]) -> Result<(), Box<dyn Error>> {
         log::info!(
-            "Begin tests for lane_count={N}, pattern={}",
-            std::any::type_name::<P>()
+            "Begin tests for scanner={}, pattern={}",
+            std::any::type_name::<S>().split(':').last().unwrap(),
+            std::any::type_name::<P>().split(':').last().unwrap()
         );
 
-        let scanner = SimdScanner::<N>::new();
+        let scanner = S::default();
         let pattern = P::from_bytes_and_mask(BYTES, MASK).ok_or("Invalid pattern")?;
 
         let mut avg = Duration::ZERO;
-        for _ in 0..1000 {
+        const N_TESTS: u32 = 1000;
+        for _ in 0..N_TESTS {
             let start = Instant::now();
 
             let opt_offset = scanner.find_one(region, &pattern);
@@ -90,20 +88,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             avg += elapsed;
         }
-        avg /= 1000;
+        avg /= N_TESTS;
 
-        log::info!("average for 1000 runs: {:.2?}", avg);
+        log::info!("average for {N_TESTS} runs: {:.2?}", avg);
 
         Ok(())
     }
 
-    bench::<64, SimdPattern<32>>(region)?;
-    bench::<64, SimdPattern<64>>(region)?;
-    bench::<64, SmallSimdPattern<32>>(region)?;
-    bench::<64, SmallSimdPattern<64>>(region)?;
-
-    bench::<32, SimdPattern<32>>(region)?;
-    bench::<32, SmallSimdPattern<32>>(region)?;
+    bench::<SimdScanner<32>, SmallSimdPattern<32>>(region)?;
+    bench::<SimdScanner<64>, SmallSimdPattern<32>>(region)?;
+    bench::<MultiNeedleSimd<32, 2>, SmallSimdPattern<32>>(region)?;
+    bench::<MultiNeedleSimd<64, 2>, SmallSimdPattern<32>>(region)?;
 
     Ok(())
 }
