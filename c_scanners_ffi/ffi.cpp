@@ -1,14 +1,15 @@
 #include "mem/pattern.h"
 #include "mem/simd_scanner.h"
+
 #include "pattern16/Pattern16.h"
 #include "pattern16/pfreq.h"
 #include "pattern16/scanners/base.h"
 #include "pattern16/util.h"
+
 #include <cstdint>
 #include <vector>
-#include <iostream>
 
-extern "C" __declspec(dllexport) uintptr_t __cdecl scan_pattern16(
+extern "C" __cdecl uintptr_t scan_pattern16(
     uint8_t* region, 
     size_t region_len, 
     uint8_t* bytes, 
@@ -26,7 +27,7 @@ extern "C" __declspec(dllexport) uintptr_t __cdecl scan_pattern16(
     return (uintptr_t)Pattern16::Impl::scanT<__m256i>(region, region_len, sig, freqs);
 }
 
-extern "C" __declspec(dllexport) uintptr_t __cdecl scan_mem_simd(
+extern "C" __cdecl uintptr_t scan_mem_simd(
     uint8_t* region, 
     size_t region_len, 
     uint8_t* bytes, 
