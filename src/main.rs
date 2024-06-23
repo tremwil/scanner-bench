@@ -26,7 +26,7 @@ mod scanner;
 mod scanners;
 
 const BYTES: &[u8] = &[
-    0x48, 0x89, 0x5c, 0x24, 0x0, 0x48, 0x89, 0x74, 0x24, 0x0, 0x57, 0x48, 0x83, 0xec, 0x0, 0x48,
+    0x48, 0x89, 0x5c, 0x24, 0x0, 0x48, 0x88, 0x74, 0x24, 0x0, 0x57, 0x48, 0x83, 0xec, 0x0, 0x48,
     0x8b, 0x1, 0x48, 0x8b, 0xf9, 0x32, 0xdb,
 ];
 const MASK: &[u8] = &[
@@ -89,11 +89,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     bench::<MemScanner, SmallSimdPattern<32>>(region)?;
-    bench::<Pat16Scanner, SmallSimdPattern<32>>(region)?;
+    // bench::<Pat16Scanner, SmallSimdPattern<32>>(region)?;
     bench::<SimdScanner<32>, SmallSimdPattern<32>>(region)?;
     bench::<SimdScanner<64>, SmallSimdPattern<32>>(region)?;
     bench::<MultiNeedleSimd<32, 2>, SmallSimdPattern<32>>(region)?;
-    bench::<MultiNeedleSimd<64, 2>, SmallSimdPattern<32>>(region)?;
 
     Ok(())
 }

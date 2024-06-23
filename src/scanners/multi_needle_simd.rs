@@ -5,6 +5,7 @@ use std::simd::{LaneCount, Simd, SupportedLaneCount};
 use itertools::Itertools;
 
 use super::simd::DEFAULT_FREQUENCIES;
+use crate::main;
 use crate::pattern::Pattern;
 use crate::scanner::Scanner;
 
@@ -91,31 +92,35 @@ where
         };
 
         let needles = find_needles::<N>(pat, &self.frequencies)?;
+        let main_offset = needles[0].index;
+        let needles = needles.map(|n| Needle {
+            index: n.index - main_offset,
+            value: n.value,
+        });
+
         let masks = {
-            let mut arr = [(Simd::<u8, L>::splat(0), 0usize); N];
-            for ((s, i), n) in arr.iter_mut().zip(needles) {
-                *s = Simd::<u8, L>::splat(n.value);
-                *i = n.index - needles[0].index;
-            }
+            let mut arr = [Simd::<u8, L>::splat(0); N];
+            arr.iter_mut()
+                .zip(needles)
+                .for_each(|(s, n)| *s = Simd::<u8, L>::splat(n.value));
             arr
         };
 
         for chunk in aligned_region {
-            unsafe { prefetch_read_data(chunk.as_array().as_ptr(), 3) };
+            unsafe { prefetch_read_data(chunk.as_array().as_ptr().add(L * 64), 3) };
 
             let chunk_ptr = chunk.as_array().as_ptr();
-            let mask_aligned = chunk.simd_eq(masks[0].0);
             let mut bitmask = (1..N)
-                .fold(mask_aligned, |m, i| unsafe {
-                    let simd_ptr = chunk_ptr.add(masks[i].1) as usize as *const Simd<u8, L>;
-                    m & simd_ptr.read_unaligned().simd_eq(masks[i].0)
+                .fold(chunk.simd_eq(masks[0]), |m, i| unsafe {
+                    let simd_ptr = chunk_ptr.add(needles[i].index) as usize as *const Simd<u8, L>;
+                    m & simd_ptr.read_unaligned().simd_eq(masks[i])
                 })
                 .to_bitmask();
 
             while unlikely(bitmask != 0) {
                 let ofs = bitmask.trailing_zeros() as usize;
                 unsafe {
-                    let addr = chunk_ptr.add(ofs).sub(needles[0].index);
+                    let addr = chunk_ptr.add(ofs).sub(main_offset);
                     if unlikely(pat.matches_unchecked(addr)) {
                         return Some(addr.offset_from(range.start) as usize);
                     }

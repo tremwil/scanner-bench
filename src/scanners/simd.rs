@@ -1,4 +1,5 @@
 use core::intrinsics::unlikely;
+use std::intrinsics::prefetch_read_data;
 use std::io::Write;
 use std::simd::cmp::SimdPartialEq;
 use std::simd::{LaneCount, Simd, SupportedLaneCount};
@@ -171,6 +172,8 @@ where
         let needle_splat: Simd<_, N> = Simd::splat(needle);
 
         for chunk in aligned_region {
+            unsafe { prefetch_read_data(chunk.as_array().as_ptr().add(N * 64), 3) };
+
             let mut eqmask = chunk.simd_eq(needle_splat).to_bitmask();
             while unlikely(eqmask != 0) {
                 let ofs = eqmask.trailing_zeros() as usize;
