@@ -7,7 +7,6 @@
 #include "pattern16/util.h"
 
 #include <cstdint>
-#include <vector>
 
 extern "C" __cdecl uintptr_t scan_pattern16(
     uint8_t* region, 
