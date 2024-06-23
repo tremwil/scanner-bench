@@ -3,32 +3,17 @@
 
 use std::{
     error::Error,
-    fs::File,
-    simd::{LaneCount, SupportedLaneCount},
     time::{Duration, Instant},
 };
 
-use pattern::{BasicPattern, Pattern};
-use pelite::pe::{Pe, PeObject, PeView};
+use pattern::Pattern;
 use scanner::Scanner;
 use scanners::{
-    foreign::{ForeignScanner, MemScanner, Pat16Scanner},
+    foreign::{MemScanner, Pat16Scanner},
     multi_needle_simd::MultiNeedleSimd,
-    simd::{SimdPattern, SimdScanner, SmallSimdPattern},
+    simd::{SimdScanner, SmallSimdPattern},
 };
-use windows::{
-    core::PCWSTR,
-    Win32::{
-        Foundation::HINSTANCE,
-        System::{
-            Console::{AllocConsole, GetConsoleWindow},
-            LibraryLoader::{
-                DisableThreadLibraryCalls, FreeLibraryAndExitThread, GetModuleHandleW,
-            },
-            SystemServices::DLL_PROCESS_ATTACH,
-        },
-    },
-};
+use windows::Win32::System::Console::{AllocConsole, GetConsoleWindow};
 
 mod pattern;
 mod scanner;

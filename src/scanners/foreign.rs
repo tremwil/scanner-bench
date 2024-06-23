@@ -1,4 +1,4 @@
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 use windows::core::PCSTR;
 use windows::Win32::Foundation::{FreeLibrary, HMODULE};
