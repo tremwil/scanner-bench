@@ -12,8 +12,9 @@ use pattern::{BasicPattern, Pattern};
 use pelite::pe::{Pe, PeObject, PeView};
 use scanner::Scanner;
 use scanners::{
+    foreign::{ForeignScanner, MemScanner, Pat16Scanner},
     multi_needle_simd::MultiNeedleSimd,
-    simd_scanner::{SimdPattern, SimdScanner, SmallSimdPattern},
+    simd::{SimdPattern, SimdScanner, SmallSimdPattern},
 };
 use windows::{
     core::PCWSTR,
@@ -68,23 +69,25 @@ fn main() -> Result<(), Box<dyn Error>> {
         let scanner = S::default();
         let pattern = P::from_bytes_and_mask(BYTES, MASK).ok_or("Invalid pattern")?;
 
+        let mut first_ofs = None;
         let mut avg = Duration::ZERO;
         const N_TESTS: u32 = 1000;
         for _ in 0..N_TESTS {
             let start = Instant::now();
 
-            let opt_offset = scanner.find_one(region, &pattern);
+            let offset = scanner.find_one(region, &pattern).unwrap_or(0);
             let elapsed = start.elapsed();
 
-            if let Some(ofs) = opt_offset {
-                log::trace!(
-                    "time={:.2?} offset={:x} address={:x}",
-                    elapsed,
-                    ofs,
-                    region.as_ptr() as usize + ofs
-                );
+            if *first_ofs.get_or_insert(offset) != offset {
+                return Err(format!("Scanners do not agree on offset: {:x}", offset).into());
             }
-            log::trace!("time={:.2?}", elapsed);
+
+            // log::trace!(
+            //     "time={:.2?} offset={:x} address={:x}",
+            //     elapsed,
+            //     offset,
+            //     region.as_ptr() as usize + offset
+            // );
 
             avg += elapsed;
         }
@@ -95,6 +98,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Ok(())
     }
 
+    bench::<MemScanner, SmallSimdPattern<32>>(region)?;
+    bench::<Pat16Scanner, SmallSimdPattern<32>>(region)?;
     bench::<SimdScanner<32>, SmallSimdPattern<32>>(region)?;
     bench::<SimdScanner<64>, SmallSimdPattern<32>>(region)?;
     bench::<MultiNeedleSimd<32, 2>, SmallSimdPattern<32>>(region)?;

@@ -95,7 +95,7 @@ where
     }
 
     fn len(&self) -> usize {
-        self.bytes.len() * N
+        N
     }
 
     fn bytes(&self) -> &[u8] {

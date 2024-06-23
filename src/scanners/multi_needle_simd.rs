@@ -4,7 +4,7 @@ use std::simd::{LaneCount, Simd, SupportedLaneCount};
 
 use itertools::Itertools;
 
-use super::simd_scanner::DEFAULT_FREQUENCIES;
+use super::simd::DEFAULT_FREQUENCIES;
 use crate::pattern::Pattern;
 use crate::scanner::Scanner;
 
