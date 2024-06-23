@@ -13,7 +13,13 @@ use scanners::{
     multi_needle_simd::MultiNeedleSimd,
     simd::{SimdScanner, SmallSimdPattern},
 };
-use windows::Win32::System::Console::{AllocConsole, GetConsoleWindow};
+use windows::Win32::System::{
+    Console::{AllocConsole, GetConsoleWindow},
+    Threading::{
+        GetCurrentProcess, GetCurrentThread, SetPriorityClass, SetThreadAffinityMask,
+        SetThreadPriority, REALTIME_PRIORITY_CLASS, THREAD_PRIORITY_TIME_CRITICAL,
+    },
+};
 
 mod pattern;
 mod scanner;
@@ -74,6 +80,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         log::info!("average for {N_TESTS} runs: {:.2?}", avg);
 
         Ok(())
+    }
+
+    unsafe {
+        SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS)?;
+        SetThreadAffinityMask(GetCurrentThread(), 1);
+        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL)?;
     }
 
     bench::<MemScanner, SmallSimdPattern<32>>(region)?;

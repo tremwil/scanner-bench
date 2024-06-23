@@ -2,4 +2,5 @@ indent_style = "Block"
 reorder_imports = true
 group_imports = "StdExternalCrate"
 control_brace_style = "ClosingNextLine"
-chain_width =80
+chain_width = 80
+merge_derives = true
