@@ -82,13 +82,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 return Err(format!("Scanners do not agree on offset: {:x}", offset).into());
             }
 
-            // log::trace!(
-            //     "time={:.2?} offset={:x} address={:x}",
-            //     elapsed,
-            //     offset,
-            //     region.as_ptr() as usize + offset
-            // );
-
             avg += elapsed;
         }
         avg /= N_TESTS;
@@ -106,34 +99,4 @@ fn main() -> Result<(), Box<dyn Error>> {
     bench::<MultiNeedleSimd<64, 2>, SmallSimdPattern<32>>(region)?;
 
     Ok(())
-}
-
-#[allow(non_snake_case)]
-#[no_mangle]
-pub unsafe extern "system" fn DllMain(
-    h_inst_dll: HINSTANCE,
-    fdw_reason: u32,
-    _lpv_reserved: *const (),
-) -> i32 {
-    if fdw_reason == DLL_PROCESS_ATTACH {
-        DisableThreadLibraryCalls(h_inst_dll).ok();
-
-        let _ = std::thread::spawn(move || {
-            let exit_code = match std::panic::catch_unwind(main) {
-                Err(e) => {
-                    println!("scanner-bench panicked in main: {:#?}", e);
-                    1
-                }
-                Ok(Err(e)) => {
-                    println!("error during scanner-bench main: {:#?}", e);
-                    1
-                }
-                Ok(_) => 0,
-            };
-
-            log::debug!("scanner-bench unloading");
-            FreeLibraryAndExitThread(h_inst_dll, exit_code);
-        });
-    }
-    1
 }
