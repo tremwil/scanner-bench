@@ -1,6 +1,7 @@
 #![feature(portable_simd)]
 #![feature(core_intrinsics)]
 
+use core::arch::x86_64::_rdtsc;
 use std::{
     error::Error,
     time::{Duration, Instant},
@@ -26,7 +27,7 @@ mod scanner;
 mod scanners;
 
 const BYTES: &[u8] = &[
-    0x48, 0x89, 0x5c, 0x24, 0x0, 0x48, 0x89, 0x74, 0x24, 0x0, 0x57, 0x48, 0x83, 0xec, 0x0, 0x48,
+    0x48, 0x89, 0x5c, 0x24, 0x0, 0x48, 0x88, 0x74, 0x24, 0x0, 0x57, 0x48, 0x83, 0xec, 0x0, 0x48,
     0x8b, 0x1, 0x48, 0x8b, 0xf9, 0x32, 0xdb,
 ];
 const MASK: &[u8] = &[
@@ -62,11 +63,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let mut first_ofs = None;
         let mut avg = Duration::ZERO;
+        let mut avg_clk = 0u64;
         const N_TESTS: u32 = 1000;
+
         for _ in 0..N_TESTS {
             let start = Instant::now();
+            let start_clk = unsafe { _rdtsc() };
 
             let offset = scanner.find_one(region, &pattern).unwrap_or(0);
+            let elasped_clk = unsafe { _rdtsc() } - start_clk;
             let elapsed = start.elapsed();
 
             if *first_ofs.get_or_insert(offset) != offset {
@@ -74,10 +79,19 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
 
             avg += elapsed;
+            avg_clk += elasped_clk;
         }
         avg /= N_TESTS;
+        avg_clk /= N_TESTS as u64;
 
-        log::info!("average for {N_TESTS} runs: {:.2?}", avg);
+        let bpc = region.len() as f64 / avg_clk as f64;
+
+        log::info!(
+            "average for {N_TESTS} runs: {:.2?} ({} cycles = {:.3} b/c)",
+            avg,
+            avg_clk,
+            bpc
+        );
 
         Ok(())
     }
@@ -92,6 +106,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // bench::<Pat16Scanner, SmallSimdPattern<32>>(region)?;
     bench::<SimdScanner<32>, SmallSimdPattern<32>>(region)?;
     bench::<SimdScanner<64>, SmallSimdPattern<32>>(region)?;
+    bench::<MultiNeedleSimd<32, 1>, SmallSimdPattern<32>>(region)?;
     bench::<MultiNeedleSimd<32, 2>, SmallSimdPattern<32>>(region)?;
 
     Ok(())
